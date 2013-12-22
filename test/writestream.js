@@ -14,20 +14,27 @@ describe('WriteStream', function() {
         return connect().then(function(_fs) {
             mongofs = _fs
         })
-    })
+    });
 
-    describe.only('import file from filesystem', function() {
-        var testfile = {
+    [
+        {
             path: path.dirname(__filename) + '/test-data/image.jpg',
-            length: 130566,
+            size: 130566,
             md5: '0b864c06dc35f4fe73afcede3310d8bd',
             contentType: 'image/jpeg'
+        },
+        {
+            path: path.dirname(__filename) + '/test-data/image.png',
+            size: 1788844,
+            md5: '0527806e48c5f6ca0131e36f8ad27c7e',
+            contentType: 'image/png'
         }
 
-        it('should write file', function() {
+    ].forEach(function(f) {
+        it('should correctly pipe from fs.ReadStream', function() {
             var deferred = Promise.defer();
-            var readStream = fs.createReadStream(testfile.path)
-            var writeStream = mongofs.createWriteStream('/testimage')
+            var readStream = fs.createReadStream(f.path)
+            var writeStream = mongofs.createWriteStream('/' + path.basename(f.path))
 
             readStream.on('error', function(err) {
                 deferred.reject(err)
@@ -44,12 +51,13 @@ describe('WriteStream', function() {
             readStream.pipe(writeStream);
 
             return deferred.promise.then(function() {
-                return mongofs.stat('/testimage').then(function(file) {
-                    file.size.should.be.eql(testfile.length)
-                    file.md5.should.be.eql(testfile.md5)
-                    file.contentType.should.be.eql(testfile.contentType)
+                return mongofs.stat('/' + path.basename(f.path)).then(function(file) {
+                    file.size.should.be.eql(f.size)
+                    file.md5.should.be.eql(f.md5)
+                    file.contentType.should.be.eql(f.contentType)
                 })
             })
         })
     })
+
 })
