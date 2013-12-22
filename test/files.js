@@ -1,6 +1,6 @@
 "use strict";
 
-/* global before, describe, it, connect */
+/* global before, describe, it, connect, sinon */
 
 var Promise = require('bluebird');
 
@@ -72,20 +72,52 @@ describe('Files', function() {
     })
 
     describe('#write', function() {
-        var fd;
-        before(function() {
-            return mongofs.open('/testWriteFile', 'w').then(function(_fd) {
-                fd = _fd;
+
+        it('should write data to file', function() {
+            return mongofs.open('/testWriteFile', 'w').then(function(fd) {
+                return mongofs.write(fd, 'test', 0, 4, null).then(function() {
+                    return mongofs.close(fd).then(function() {
+                        fd.file.should.have.property('length', 4)
+                        fd.file.should.have.property('md5', '098f6bcd4621d373cade4e832627b4f6')
+                        fd.file.should.have.property('contentType', 'text/plain')
+                    })
+                })
             })
         })
 
-        it('should write data to file', function() {
-            return mongofs.write(fd, 'test', 0, 4).then(function() {
-                return mongofs.close(fd).then(function() {
-                    fd.file.should.have.property('length', 4)
-                    fd.file.should.have.property('md5', '098f6bcd4621d373cade4e832627b4f6')
-                    fd.file.should.have.property('contentType', 'text/plain')
+        it('should append data to file', function() {
+            return mongofs.open('/testWriteFile', 'a').then(function(fd) {
+                return mongofs.write(fd, '+test', 0, 5, null)
+                .then(function() {
+                    return mongofs.close(fd).then(function() {
+                        fd.file.should.have.property('length', 9)
+                        fd.file.should.have.property('md5', 'abeb37e2fa0e063ddb9e15a27be9890c')
+                        fd.file.should.have.property('contentType', 'text/plain')
+                    })
                 })
+            })
+        })
+
+        it('should call callback on success', function() {
+
+            var cb = sinon.spy(function() {})
+
+            return mongofs.open('/testWriteFile', 'w').then(function(fd) {
+                return mongofs.write(fd, 'test', 0, 4, null, cb).then(function() {
+                    return mongofs.close(fd).then(function() {
+                        cb.should.have.been.calledWith(null, 4)
+                    })
+                })
+            })
+        })
+
+        it('should call callback with error on error', function() {
+
+            var cb = sinon.spy(function() {})
+            var data = 'test'
+
+            return mongofs.write(null, data, 0, 4, null, cb).catch(function() {
+                cb.firstCall.args[0].should.be.instanceOf(Error).and.have.property('code', 'EBADF')
             })
         })
     })
