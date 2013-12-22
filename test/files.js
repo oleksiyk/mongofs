@@ -71,7 +71,7 @@ describe('Files', function() {
         })
     })
 
-    describe.only('#write', function() {
+    describe('#write', function() {
         var fd;
         before(function() {
             return mongofs.open('/testWriteFile', 'w').then(function(_fd) {
