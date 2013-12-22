@@ -101,7 +101,7 @@ describe('Files', function() {
             })
         })
 
-        it('should append data to file', function() {
+        it('should append data to file (flags=a)', function() {
             return mongofs.open('/testWriteFile', 'a').then(function(fd) {
                 return mongofs.write(fd, '+test', 0, 5, null)
                 .then(function() {
