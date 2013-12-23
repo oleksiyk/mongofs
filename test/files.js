@@ -19,7 +19,7 @@ describe('Files', function() {
     describe('#open', function() {
 
         before(function() {
-            return mongofs.mkdir('/testFolder')
+            return mongofs.mkdir('/testDirectory')
         })
 
         it('should fail for wrong flags - EINVAL', function() {
@@ -63,7 +63,7 @@ describe('Files', function() {
         });
 
         ['r', 'r+'].forEach(function(flag) {
-            it('should fail for missing file (or folder) flags=' + flag + ' - ENOENT', function() {
+            it('should fail for missing file (or directory) flags=' + flag + ' - ENOENT', function() {
                 var cb = sinon.spy(function() {})
                 return mongofs.open('/abracadabra', flag, cb).should.be.rejected.and.eventually.have.property('code', 'ENOENT')
                     .then(function() {
@@ -73,7 +73,7 @@ describe('Files', function() {
         });
 
         ['r', 'r+', 'w', 'w+', 'wx', 'wx+', 'a', 'a+', 'ax', 'ax+'].forEach(function(flag) {
-            it('should fail for missing path for file (or folder) flags=' + flag + ' - ENOENT', function() {
+            it('should fail for missing path for file (or directory) flags=' + flag + ' - ENOENT', function() {
                 var cb = sinon.spy(function() {})
                 return mongofs.open('/abracadabra/abracadabra', flag, cb).should.be.rejected.and.eventually.have.property('code', 'ENOENT')
                     .then(function() {
@@ -83,9 +83,9 @@ describe('Files', function() {
         });
 
         ['r', 'r+', 'w', 'w+', 'wx', 'wx+', 'a', 'a+', 'ax', 'ax+'].forEach(function(flag) {
-            it('should fail for existing folder with flags=' + flag + ' - EISDIR', function() {
+            it('should fail for existing directory with flags=' + flag + ' - EISDIR', function() {
                 var cb = sinon.spy(function() {})
-                return mongofs.open('/testFolder', flag, cb).should.be.rejected.and.eventually.have.property('code', 'EISDIR')
+                return mongofs.open('/testDirectory', flag, cb).should.be.rejected.and.eventually.have.property('code', 'EISDIR')
                     .then(function() {
                         cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'EISDIR')
                     })
@@ -108,6 +108,18 @@ describe('Files', function() {
                     return mongofs.close(fd).then(function() {
                         fd.file.should.have.property('length', 4)
                         fd.file.should.have.property('md5', '098f6bcd4621d373cade4e832627b4f6')
+                        fd.file.should.have.property('contentType', 'text/plain')
+                    })
+                })
+            })
+        })
+
+        it('should write utf8 data to file', function() {
+            return mongofs.open('/testWriteFileUtf8', 'w').then(function(fd) {
+                return mongofs.write(fd, 'тест', 0, 8, null).then(function() {
+                    return mongofs.close(fd).then(function() {
+                        fd.file.should.have.property('length', 8)
+                        fd.file.should.have.property('md5', 'ebb5e89e8a94e9dd22abf5d915d112b2')
                         fd.file.should.have.property('contentType', 'text/plain')
                     })
                 })
@@ -161,9 +173,10 @@ describe('Files', function() {
             var cb = sinon.spy(function() {})
             var data = 'test'
 
-            return mongofs.write(null, data, 0, 4, null, cb).catch(function() {
-                cb.firstCall.args[0].should.be.instanceOf(Error).and.have.property('code', 'EBADF')
-            })
+            return mongofs.write(null, data, 0, 4, null, cb).should.be.rejected.and.eventually.have.property('code', 'EBADF')
+                .then(function() {
+                    cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'EBADF')
+                })
         })
     })
 
@@ -193,12 +206,11 @@ describe('Files', function() {
         })
 
         it('should call callback with error on error', function() {
-
             var cb = sinon.spy(function() {})
-
-            return mongofs.close(null, cb).catch(function() {
-                cb.firstCall.args[0].should.be.instanceOf(Error).and.have.property('code', 'EBADF')
-            })
+            return mongofs.close(null, cb).should.be.rejected.and.eventually.have.property('code', 'EBADF')
+                .then(function() {
+                    cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'EBADF')
+                })
         })
     })
 
@@ -217,6 +229,61 @@ describe('Files', function() {
                         file.md5.should.be.eql(f.md5)
                         file.contentType.should.be.eql(f.contentType)
                     })
+                })
+            })
+        })
+    })
+
+
+    describe('#unlink', function() {
+
+        before(function() {
+            return Promise.all([
+                mongofs.mkdir('/unlinkDir'),
+                Promise.all(testfiles.map(function(f) {
+                    return Promise.promisify(fs.readFile)(f.path).then(function(data) {
+                        return mongofs.writeFile('/unlink_' + path.basename(f.path), data)
+                    })
+                }))
+            ])
+        })
+
+        it('should fail for not existing path', function() {
+            var cb = sinon.spy(function() {})
+            return mongofs.unlink('/abracadabra', cb).should.be.rejected.and.eventually.have.property('code', 'ENOENT')
+                .then(function() {
+                    cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'ENOENT')
+                })
+        })
+
+        it('should fail for directory', function() {
+            var cb = sinon.spy(function() {})
+
+            return mongofs.unlink('/unlinkDir', cb).should.be.rejected.and.eventually.have.property('code', 'EISDIR')
+                .then(function() {
+                    cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'EISDIR')
+            })
+        })
+
+        testfiles.forEach(function(f) {
+            it('should remove file', function() {
+                var cb = sinon.spy(function() {})
+                var filename = '/unlink_' + path.basename(f.path)
+
+                return mongofs.stat(filename).then(function(file) {
+                    return mongofs.unlink(filename, cb)
+                        .then(function() {
+                            cb.should.have.been.calledWith(null)
+
+                            return Promise.all([
+                                mongofs.stat(filename).should.be.rejected.and.eventually.have.property('code', 'ENOENT'),
+                                mongofs.db.collection('fs.chunks').then(function(collection) {
+                                    return collection.count({
+                                        'files_id': file._id
+                                    })
+                                }).should.eventually.be.eql(0)
+                            ])
+                        })
                 })
             })
         })
