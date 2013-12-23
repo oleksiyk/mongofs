@@ -1,6 +1,6 @@
 "use strict";
 
-/* global before, describe, it, connect */
+/* global before, describe, it, connect, sinon */
 
 describe('#stat', function() {
 
@@ -13,8 +13,9 @@ describe('#stat', function() {
     })
 
     it('should return valid Stats object for folder', function() {
+        var cb = sinon.spy(function() {})
         return mongofs.mkdir('/testStat').then(function() {
-            return mongofs.stat('/testStat').then(function(stats) {
+            return mongofs.stat('/testStat', cb).then(function(stats) {
                 stats.should.be.an('object')
                 stats.should.have.property('mtime').that.is.closeTo(new Date(), 500)
                 stats.should.have.property('ctime').that.is.closeTo(new Date(), 500)
@@ -26,12 +27,15 @@ describe('#stat', function() {
                     .and.respondTo('isSocket')
                 stats.isDirectory().should.eql(true)
                 stats.isFile().should.eql(false)
+
+                cb.should.have.been.calledWith(null, stats)
             })
         })
 
     })
 
     it('should return valid Stats object for file', function() {
+        var cb = sinon.spy(function() {})
 
         return mongofs.open('/testFile', 'w').then(function(fd) {
             return mongofs.write(fd, 'test', 0, 4).then(function() {
@@ -39,7 +43,7 @@ describe('#stat', function() {
             })
         })
         .then(function() {
-            return mongofs.stat('/testFile').then(function(stats) {
+            return mongofs.stat('/testFile', cb).then(function(stats) {
                 stats.should.be.an('object')
                 stats.should.have.property('mtime').that.is.closeTo(new Date(), 500)
                 stats.should.have.property('ctime').that.is.closeTo(new Date(), 500)
@@ -52,8 +56,18 @@ describe('#stat', function() {
                 stats.isDirectory().should.eql(false)
                 stats.isFile().should.eql(true)
                 stats.size.should.eql(4)
+
+                cb.should.have.been.calledWith(null, stats)
             })
         })
+    })
+
+    it('should fail for not existing path - ENOENT', function() {
+        var cb = sinon.spy(function() {})
+        return mongofs.stat('/djhjdhjehw/sjhsjhsj', cb).should.be.rejected.and.eventually.have.property('code', 'ENOENT')
+            .then(function() {
+                cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'ENOENT')
+            })
     })
 
 })

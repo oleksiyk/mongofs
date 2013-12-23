@@ -1,6 +1,6 @@
 "use strict";
 
-/* global before, describe, it, should, connect */
+/* global before, describe, it, should, connect, sinon */
 
 var Promise = require('bluebird')
 
@@ -15,8 +15,9 @@ describe('Directories', function() {
     })
 
     describe('#mkdir', function() {
+        var cb = sinon.spy(function() {})
         it('should create directory', function() {
-            return mongofs.mkdir('/test')
+            return mongofs.mkdir('/test', cb)
                 .then(function() {
                     return mongofs.db.collection('fs.files').then(function(collection) {
                         return collection.findOne({
@@ -30,21 +31,32 @@ describe('Directories', function() {
                     dir.should.have.property('isDirectory', true)
                     dir.should.have.property('mtime').that.is.closeTo(new Date(), 500)
                     dir.should.have.property('ctime').that.is.closeTo(new Date(), 500)
+
+                    cb.should.have.been.calledWith(null)
                 })
         })
 
         it('should not create duplicate directory - EEXIST', function() {
-            return mongofs.mkdir('/test').should.be.rejected.and.eventually.have.property('code', 'EEXIST')
+            var cb = sinon.spy(function() {})
+            return mongofs.mkdir('/test', cb).should.be.rejected.and.eventually.have.property('code', 'EEXIST')
+                .then(function() {
+                    cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'EEXIST')
+                })
         })
 
         it('should not create directories recursively - ENOENT', function() {
-            return mongofs.mkdir('/aaa/bbb/ccc').should.be.rejected.and.eventually.have.property('code', 'ENOENT')
+            var cb = sinon.spy(function() {})
+            return mongofs.mkdir('/aaa/bbb/ccc', cb).should.be.rejected.and.eventually.have.property('code', 'ENOENT')
+                .then(function() {
+                    cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'ENOENT')
+                })
         })
     })
 
     describe('#rmdir', function() {
         it('should remove empty directory', function() {
-            return mongofs.rmdir('/test')
+            var cb = sinon.spy(function() {})
+            return mongofs.rmdir('/test', cb)
                 .then(function() {
                     return mongofs.db.collection('fs.files').then(function(collection) {
                         return collection.findOne({
@@ -54,14 +66,20 @@ describe('Directories', function() {
                 })
                 .then(function(dir) {
                     should.not.exist(dir)
+                    cb.should.have.been.calledWith(null)
                 })
         })
 
         it('should fail for not existent directory', function() {
-            return mongofs.rmdir('/aaa/bbb/ccc').should.be.rejected.and.eventually.have.property('code', 'ENOENT');
+            var cb = sinon.spy(function() {})
+            return mongofs.rmdir('/aaa/bbb/ccc', cb).should.be.rejected.and.eventually.have.property('code', 'ENOENT')
+                .then(function() {
+                    cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'ENOENT')
+                })
         })
 
         it('should fail when directory is not empty', function() {
+            var cb = sinon.spy(function() {})
             return mongofs.mkdir('/test')
                 .then(function() {
                     return mongofs.open('/test/file', 'w')
@@ -70,7 +88,10 @@ describe('Directories', function() {
                         })
                 })
                 .then(function() {
-                    return mongofs.rmdir('/test').should.be.rejected.and.eventually.have.property('code', 'ENOTEMPTY');
+                    return mongofs.rmdir('/test', cb).should.be.rejected.and.eventually.have.property('code', 'ENOTEMPTY');
+                })
+                .then(function() {
+                    cb.getCall(0).args[0].should.be.instanceOf(Error).and.have.property('code', 'ENOTEMPTY')
                 })
         })
     })
@@ -96,13 +117,28 @@ describe('Directories', function() {
             })
         })
 
+        it('should return empty array for empty directory', function() {
+            var cb = sinon.spy(function() {})
+
+            return mongofs.mkdir('/readdir2').then(function() {
+                return mongofs.readdir('/readdir2', cb).then(function(files) {
+                    files.should.be.an('array').and.have.length(0)
+                    cb.should.have.been.calledWith(null, files)
+                })
+            })
+        })
+
         it('should list files and sub-directories in a directory', function() {
-            return mongofs.readdir('/readdir').then(function(files) {
+            var cb = sinon.spy(function() {})
+            return mongofs.readdir('/readdir', cb).then(function(files) {
                 files.should.be.an('array').and.have.length(2)
                 files.should.include('directory')
                 files.should.include('file')
+
+                cb.should.have.been.calledWith(null, files)
             })
         })
+
     })
 
 })
