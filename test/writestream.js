@@ -1,24 +1,10 @@
 "use strict";
 
-/* global before, describe, it, connect */
+/* global before, describe, it, connect, testfiles */
 
 var Promise = require('bluebird');
 var path    = require('path')
 var fs      = require('fs')
-
-var testfiles = [
-    {
-        path: path.dirname(__filename) + '/test-data/image.jpg',
-        size: 130566,
-        md5: '0b864c06dc35f4fe73afcede3310d8bd',
-        contentType: 'image/jpeg'
-    }, {
-        path: path.dirname(__filename) + '/test-data/image.png',
-        size: 1788844,
-        md5: '0527806e48c5f6ca0131e36f8ad27c7e',
-        contentType: 'image/png'
-    }
-]
 
 describe('WriteStream', function() {
 

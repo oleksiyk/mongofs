@@ -27,6 +27,22 @@ global.chai.use(chaiAsPromised);
 var sinonChai = require("sinon-chai");
 global.chai.use(sinonChai);
 
+var path = require('path')
+
+global.testfiles = [
+    {
+        path: path.dirname(__filename) + '/test-data/image.jpg',
+        size: 130566,
+        md5: '0b864c06dc35f4fe73afcede3310d8bd',
+        contentType: 'image/jpeg'
+    }, {
+        path: path.dirname(__filename) + '/test-data/image.png',
+        size: 1788844,
+        md5: '0527806e48c5f6ca0131e36f8ad27c7e',
+        contentType: 'image/png'
+    }
+]
+
 global.connect = function() {
     return require('mongomise').connect('mongodb://localhost:27017/' + dbName)
         .then(function(db) {

@@ -1,8 +1,10 @@
 "use strict";
 
-/* global before, describe, it, connect, sinon */
+/* global before, describe, it, connect, sinon, testfiles */
 
 var Promise = require('bluebird');
+var fs      = require('fs');
+var path    = require('path')
 
 describe('Files', function() {
 
@@ -196,6 +198,26 @@ describe('Files', function() {
 
             return mongofs.close(null, cb).catch(function() {
                 cb.firstCall.args[0].should.be.instanceOf(Error).and.have.property('code', 'EBADF')
+            })
+        })
+    })
+
+    describe('#writefile', function() {
+
+        testfiles.forEach(function(f) {
+            it('should create and write file', function() {
+                var cb = sinon.spy(function() {})
+                return Promise.promisify(fs.readFile)(f.path).then(function(data) {
+                    return mongofs.writeFile('/' + path.basename(f.path), data, cb)
+                })
+                .then(function() {
+                    cb.should.have.been.calledWith(null)
+                    return mongofs.stat('/' + path.basename(f.path)).then(function(file) {
+                        file.size.should.be.eql(f.size)
+                        file.md5.should.be.eql(f.md5)
+                        file.contentType.should.be.eql(f.contentType)
+                    })
+                })
             })
         })
     })
