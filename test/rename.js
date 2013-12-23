@@ -13,6 +13,7 @@ describe('#rename', function() {
             mongofs = _fs
         })
         .then(function() {
+            // i should recreate fresh structure for each test below so that they don't depend on each other
             return Promise.all([
                 mongofs.mkdir('/aaa'),
                 mongofs.mkdir('/aaa1'),
