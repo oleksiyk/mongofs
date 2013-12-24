@@ -114,6 +114,33 @@ describe('Files', function() {
             })
         })
 
+        it('should write data to file by position', function() {
+            var fd;
+            return mongofs.open('/testWriteFile', 'w').then(function(_fd) {
+                fd = _fd;
+                return mongofs.write(fd, 'test', 0, 4, null)
+            })
+            .then(function() {
+                return mongofs.write(fd, 'a', 0, 1, 0)
+            })
+            .then(function() {
+                return mongofs.write(fd, 'b', 0, 1, 1)
+            })
+            .then(function() {
+                return mongofs.write(fd, 'c', 0, 1, 2)
+            })
+            .then(function() {
+                return mongofs.write(fd, 'de', 0, 2, 3)
+            })
+            .then(function() {
+                return mongofs.close(fd).then(function() {
+                    fd.file.should.have.property('length', 5)
+                    fd.file.should.have.property('md5', 'ab56b4d92b40713acc5af89985d4b786')
+                    fd.file.should.have.property('contentType', 'text/plain')
+                })
+            })
+        })
+
         it('should write utf8 data to file', function() {
             return mongofs.open('/testWriteFileUtf8', 'w').then(function(fd) {
                 return mongofs.write(fd, 'тест', 0, 8, null).then(function() {
@@ -214,6 +241,69 @@ describe('Files', function() {
         })
     })
 
+    describe('#read', function() {
+        it('should read data from file', function() {
+            return mongofs.open('/testReadFile', 'w').then(function(fd) {
+                return mongofs.write(fd, 'test', 0, 4, null).then(function() {
+                    return mongofs.close(fd)
+                })
+            })
+            .then(function() {
+                return mongofs.open('/testReadFile', 'r')
+            })
+            .then(function(fd) {
+                var buffer = new Buffer(4)
+                return mongofs.read(fd, buffer, 0, 4, 0).then(function() {
+                    buffer.toString().should.be.eql('test')
+                })
+            })
+        })
+
+        it('should read data from file with offset', function() {
+            return mongofs.open('/testReadFile', 'w').then(function(fd) {
+                return mongofs.write(fd, 'test', 0, 4, null).then(function() {
+                    return mongofs.close(fd)
+                })
+            })
+            .then(function() {
+                return mongofs.open('/testReadFile', 'r')
+            })
+            .then(function(fd) {
+                var buffer = new Buffer(2)
+                return mongofs.read(fd, buffer, 0, 2, 2).then(function() {
+                    buffer.toString().should.be.eql('st')
+                })
+            })
+        })
+
+        it('should read data incrementaly', function() {
+            var fd
+            return mongofs.open('/testReadFile', 'w').then(function(fd) {
+                return mongofs.write(fd, 'test', 0, 4, null).then(function() {
+                    return mongofs.close(fd)
+                })
+            })
+            .then(function() {
+                return mongofs.open('/testReadFile', 'r')
+            })
+            .then(function(_fd) {
+                fd = _fd;
+                var buffer = new Buffer(2)
+                return mongofs.read(fd, buffer, 0, 2).then(function(length) {
+                    buffer.toString().should.be.eql('te')
+                    length.should.be.eql(2)
+                })
+            })
+            .then(function() {
+                var buffer = new Buffer(20)
+                return mongofs.read(fd, buffer, 0, 20).then(function(length) {
+                    length.should.be.eql(2)
+                    buffer.slice(0,length).toString().should.be.eql('st')
+                })
+            })
+        })
+    })
+
     describe('#writefile', function() {
 
         testfiles.forEach(function(f) {
@@ -234,6 +324,18 @@ describe('Files', function() {
         })
     })
 
+    describe('#readfile', function() {
+
+        testfiles.forEach(function(f) {
+            it('should read file into buffer', function() {
+                var cb = sinon.spy(function() {})
+                return mongofs.readFile('/' + path.basename(f.path), cb).then(function(data) {
+                    data.length.should.be.eql(f.size)
+                    require('crypto').createHash('md5').update(data).digest('hex').should.be.eql(f.md5)
+                })
+            })
+        })
+    })
 
     describe('#unlink', function() {
 

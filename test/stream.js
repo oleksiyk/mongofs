@@ -6,7 +6,7 @@ var Promise = require('bluebird');
 var path    = require('path')
 var fs      = require('fs')
 
-describe('WriteStream', function() {
+describe('Stream', function() {
 
     var mongofs;
 
@@ -32,6 +32,21 @@ describe('WriteStream', function() {
         return deferred.promise
     }
 
+    function md5FromStream(filename) {
+        var deferred = Promise.defer();
+        var shasum = require('crypto').createHash('md5');
+        var s = mongofs.createReadStream(filename);
+        s.on('data', function(d) {
+            shasum.update(d);
+        });
+        s.on('end', function() {
+            var d = shasum.digest('hex');
+            deferred.resolve(d)
+        });
+        return deferred.promise;
+    }
+
+
     before(function() {
         return connect().then(function(_fs) {
             mongofs = _fs
@@ -39,7 +54,7 @@ describe('WriteStream', function() {
     });
 
     testfiles.forEach(function(f) {
-        it('should correctly pipe from fs.ReadStream', function() {
+        it('#writetstream should correctly pipe from fs.ReadStream', function() {
             return copyFileFromFilesystem(f.path, '/' + path.basename(f.path)).then(function() {
                 return mongofs.stat('/' + path.basename(f.path)).then(function(file) {
                     file.size.should.be.eql(f.size)
@@ -50,7 +65,13 @@ describe('WriteStream', function() {
         })
     })
 
-    it('should correctly truncate files', function() {
+    testfiles.forEach(function(f) {
+        it('#readstream should correctly read files', function() {
+            return md5FromStream('/' + path.basename(f.path)).should.eventually.be.eql(f.md5)
+        })
+    })
+
+    it('#writestream should correctly truncate (overwrite) files', function() {
         return copyFileFromFilesystem(testfiles[1].path, '/someimage').then(function() {
             return copyFileFromFilesystem(testfiles[0].path, '/someimage')
         }).then(function() {

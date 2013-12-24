@@ -8,8 +8,6 @@ var dbName = (process && process.env && process.env.MONGOFS_TEST_DBNAME)
     ? process.env.MONGOFS_TEST_DBNAME
     : 'mongofs-test'
 
-global.mongomise = require(global.libPath)
-
 global.sinon = require("sinon");
 global.chai = require("chai");
 
@@ -44,12 +42,16 @@ global.testfiles = [
 ]
 
 global.connect = function() {
-    return require('mongomise').connect('mongodb://localhost:27017/' + dbName)
-        .then(function(db) {
-            return db.dropDatabase().then(function() {
-                return require('../lib').create(db).then(function(_fs) {
-                    return _fs
-                })
+    return require('mongomise').connect('mongodb://localhost:27017/' + dbName, {
+        db: {
+            w: 1
+        }
+    })
+    .then(function(db) {
+        return db.dropDatabase().then(function() {
+            return require('../lib').create(db).then(function(_fs) {
+                return _fs
             })
         })
+    })
 }
