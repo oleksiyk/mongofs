@@ -14,11 +14,13 @@ MongoFS is an implementation of MongoDB GridFS that emulates node.js `fs` module
 `createWriteStream`
 `unlink`
 `stat`
+`fstat`
+`utime`
+`futimes`
+`appendFile`
+`exists`
 
 All methods will return a promise as well as call a usual callback
-
-### Status
-Early beta, unstable.
 
 ## Authors
 
