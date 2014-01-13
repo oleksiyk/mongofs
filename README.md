@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/oleksiyk/mongofs.png)](https://travis-ci.org/oleksiyk/mongofs)
+
 # MongoFS
 
 MongoFS is an implementation of MongoDB GridFS that emulates node.js `fs` module:
